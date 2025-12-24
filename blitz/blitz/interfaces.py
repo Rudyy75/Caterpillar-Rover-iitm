@@ -53,8 +53,8 @@ blitz_interfaces = {
     "bno_reading": Blitz(
         topic="/bno",
         msg_id=5,
-        struct_fmt="fff",  # 3 floats: current_angle, pitch, roll
-        fields=["current_angle", "pitch", "roll"],
+        struct_fmt="fff",  # 3 floats: yaw, pitch, roll
+        fields=["yaw", "pitch", "roll"],
         ros_msg=BnoReading,
         from_mcu=True
     ),
