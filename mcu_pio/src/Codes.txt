@@ -1,0 +1,358 @@
+Code 1:
+
+// ESP8266 - receive joystick + flags and control motors + D5..D8 behavior
+// Modified: D6 outputs continuous PWM, independent of flags.
+
+#include <ESP8266WiFi.h>
+#include <espnow.h>
+#include <stdint.h>
+
+// Pin mapping (NodeMCU labels)
+const uint8_t LEFT_L_PWM_PIN  = D1; // left forward (LPWM)
+const uint8_t LEFT_R_PWM_PIN  = D2; // left reverse (RPWM)
+const uint8_t RIGHT_L_PWM_PIN = D3; // right forward (LPWM)
+const uint8_t RIGHT_R_PWM_PIN = D4; // right reverse (RPWM)
+
+// extra control pins
+const uint8_t RIGHT_PIN_D5 = D5; // digital control for right_flag
+const uint8_t RIGHT_PIN_D6 = D6; // NOW: continuous PWM output
+const uint8_t LEFT_PIN_D7  = D7;
+const uint8_t LEFT_PIN_D8  = D8;
+
+const uint8_t TX_PIN       = 1;   // GPIO1 (TX)
+const uint8_t LIMIT_PIN    = D0;  // reflects incoming.limit_flag
+
+// PWM level (continuous on D6)
+const uint8_t RIGHT_PWM_FACTOR = 200;
+
+const float JOY_MAX_ABS   = 508.0f;
+const float MIX_MAX_ABS   = JOY_MAX_ABS * 2.0f;
+const float PWM_MAX       = 255.0f;
+const float SCALE_MIX2PWM = PWM_MAX / MIX_MAX_ABS;
+const float DEADZONE_PWM  = 5.0f;
+
+typedef struct {
+  int16_t x;
+  int16_t y;
+  uint8_t right_flag;
+  uint8_t left_flag;
+  uint8_t limit_flag;
+} JoyData;
+
+JoyData incoming;
+
+// helper: safely set two direction pins for one side
+void setSidePWM(uint8_t pinLPWM, uint8_t pinRPWM, float value) {
+  float mag = fabs(value);
+
+  if (mag < DEADZONE_PWM) {
+    analogWrite(pinLPWM, 0);
+    analogWrite(pinRPWM, 0);
+    return;
+  }
+
+  uint16_t pwm = (uint16_t)constrain(mag, 0.0f, PWM_MAX);
+
+  if (value > 0) {
+    analogWrite(pinLPWM, pwm);
+    analogWrite(pinRPWM, 0);
+  } else {
+    analogWrite(pinLPWM, 0);
+    analogWrite(pinRPWM, pwm);
+  }
+}
+
+// apply right_flag (D5 + TX). D6 no longer controlled here.
+void applyRightFlag(uint8_t flag) {
+  if (flag == 0) {
+    digitalWrite(RIGHT_PIN_D5, LOW);
+    digitalWrite(TX_PIN, LOW);
+  } 
+  else if (flag == 1) {
+    digitalWrite(RIGHT_PIN_D5, HIGH);
+    digitalWrite(TX_PIN, LOW);
+  } 
+  else { // flag == 2
+    digitalWrite(RIGHT_PIN_D5, LOW);
+    digitalWrite(TX_PIN, HIGH);
+  }
+}
+
+// apply left_flag to D7/D8 (PWM)
+void applyLeftFlag(uint8_t flag) {
+  if (flag == 0) {
+    analogWrite(LEFT_PIN_D7, 0);
+    analogWrite(LEFT_PIN_D8, 0);
+  } else if (flag == 1) {
+    analogWrite(LEFT_PIN_D7, 200);
+    analogWrite(LEFT_PIN_D8, 0);
+  } else { // flag == 2
+    analogWrite(LEFT_PIN_D7, 0);
+    analogWrite(LEFT_PIN_D8, 200);
+  }
+}
+
+// ESP-NOW receive callback
+void onDataRecv(uint8_t *mac, uint8_t *data, uint8_t len) {
+  if (len != sizeof(JoyData)) return;
+  memcpy(&incoming, data, sizeof(JoyData));
+
+  int16_t rawX = incoming.x;
+  int16_t rawY = incoming.y;
+
+  float left_raw  = (float)rawY + (float)rawX;
+  float right_raw = (float)rawY - (float)rawX;
+
+  float left_pwm  = left_raw  * SCALE_MIX2PWM;
+  float right_pwm = right_raw * SCALE_MIX2PWM;
+
+  left_pwm  = constrain(left_pwm,  -PWM_MAX, PWM_MAX);
+  right_pwm = constrain(right_pwm, -PWM_MAX, PWM_MAX);
+
+  setSidePWM(LEFT_L_PWM_PIN,  LEFT_R_PWM_PIN,  left_pwm);
+  setSidePWM(RIGHT_L_PWM_PIN, RIGHT_R_PWM_PIN, right_pwm);
+
+  // apply flags to extra pins
+  applyRightFlag(incoming.right_flag);
+  applyLeftFlag(incoming.left_flag);
+
+  // limit flag
+  if (incoming.limit_flag) digitalWrite(LIMIT_PIN, HIGH);
+  else digitalWrite(LIMIT_PIN, LOW);
+}
+
+void setup() {
+  // No Serial.begin()
+
+  pinMode(LEFT_L_PWM_PIN, OUTPUT);
+  pinMode(LEFT_R_PWM_PIN, OUTPUT);
+  pinMode(RIGHT_L_PWM_PIN, OUTPUT);
+  pinMode(RIGHT_R_PWM_PIN, OUTPUT);
+
+  pinMode(RIGHT_PIN_D5, OUTPUT);
+  pinMode(RIGHT_PIN_D6, OUTPUT);
+  pinMode(LEFT_PIN_D7, OUTPUT);
+  pinMode(LEFT_PIN_D8, OUTPUT);
+
+  pinMode(TX_PIN, OUTPUT);
+  pinMode(LIMIT_PIN, OUTPUT);
+
+  analogWriteRange((int)PWM_MAX);
+
+  // ensure stopped motors
+  analogWrite(LEFT_L_PWM_PIN, 0);
+  analogWrite(LEFT_R_PWM_PIN, 0);
+  analogWrite(RIGHT_L_PWM_PIN, 0);
+  analogWrite(RIGHT_R_PWM_PIN, 0);
+
+  // extras reset
+  digitalWrite(RIGHT_PIN_D5, LOW);
+  digitalWrite(TX_PIN, LOW);
+  analogWrite(LEFT_PIN_D7, 0);
+  analogWrite(LEFT_PIN_D8, 0);
+  digitalWrite(LIMIT_PIN, LOW);
+
+  // 🔥 NEW — continuous PWM on D6
+  analogWrite(RIGHT_PIN_D6, RIGHT_PWM_FACTOR);
+
+  WiFi.mode(WIFI_STA);
+  WiFi.disconnect();
+
+  if (esp_now_init() != 0) return;
+
+  esp_now_register_recv_cb(onDataRecv);
+}
+
+void loop() {
+  delay(10);
+}
+
+Code 2:
+
+// ===============================
+// ESP32 - Joystick + Two Flags Sender (FINAL WORKING)
+// Sends: int16_t x, int16_t y, uint8_t right_flag, uint8_t left_flag, uint8_t limit_flag
+// Compatible with ESP32 Core v3.x
+// ===============================
+
+#include <WiFi.h>
+#include <esp_now.h>
+
+// ===================== PEER MAC =====================
+uint8_t peerMac[] = {0x84, 0xCC, 0xA8, 0x9E, 0x85, 0x8A};
+
+// ===================== DATA STRUCT =====================
+typedef struct {
+  int16_t x;
+  int16_t y;
+  uint8_t right_flag;
+  uint8_t left_flag;
+  uint8_t limit_flag; // NEW
+} JoyData;
+
+JoyData data;
+
+// ===================== PINS =====================
+const int JOY_Y_PIN = 34;
+const int JOY_X_PIN = 35;
+
+const int OUT25 = 25;
+const int OUT26 = 26;
+
+const int RIGHT_SW_PIN = 32;
+const int LEFT_SW_PIN  = 33;
+
+const int LIMIT_SWITCH_PIN = 27; // NEW - chosen unused pin
+
+// ===================== DEBOUNCE =====================
+const unsigned long DEBOUNCE_MS = 50;
+int lastRawRight = HIGH;
+int lastRawLeft  = HIGH;
+int stableRight  = HIGH;
+int stableLeft   = HIGH;
+unsigned long lastDebounceRight = 0;
+unsigned long lastDebounceLeft  = 0;
+
+// ===================== FLAGS =====================
+uint8_t right_flag = 0;
+uint8_t left_flag  = 0;
+uint8_t limit_flag = 0; // NEW
+
+// State variables to produce sequence: 0,1,0,2,0,1,0,2,...
+int rightState = 0;
+int leftState  = 0;
+
+// ===================== SMOOTHING =====================
+int smoothValue(int raw, int prev, float alpha = 0.2) {
+  return (int)(alpha * raw + (1 - alpha) * prev);
+}
+
+// ===================== ESP-NOW CALLBACK (FIXED) =====================
+void OnDataSent(const wifi_tx_info_t *info, esp_now_send_status_t status) {
+  Serial.print("Send status: ");
+  Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Success" : "Fail");
+}
+
+// ===================== SETUP =====================
+void setup() {
+  Serial.begin(115200);
+
+  pinMode(JOY_Y_PIN, INPUT);
+  pinMode(JOY_X_PIN, INPUT);
+
+  pinMode(OUT25, OUTPUT);
+  pinMode(OUT26, OUTPUT);
+  digitalWrite(OUT25, HIGH);
+  digitalWrite(OUT26, HIGH);
+
+  pinMode(RIGHT_SW_PIN, INPUT_PULLUP);
+  pinMode(LEFT_SW_PIN, INPUT_PULLUP);
+
+  // Limit switch pin - using internal pulldown so switch should connect to 3.3V when pressed.
+  pinMode(LIMIT_SWITCH_PIN, INPUT_PULLDOWN); // NEW
+
+  lastRawRight = digitalRead(RIGHT_SW_PIN);
+  lastRawLeft  = digitalRead(LEFT_SW_PIN);
+  stableRight = lastRawRight;
+  stableLeft  = lastRawLeft;
+
+  WiFi.mode(WIFI_STA);
+  WiFi.disconnect();
+
+  if (esp_now_init() != ESP_OK) {
+    Serial.println("ESP-NOW init failed!");
+    while (1);
+  }
+
+  esp_now_register_send_cb(OnDataSent);
+
+  esp_now_peer_info_t peerInfo = {};
+  memcpy(peerInfo.peer_addr, peerMac, 6);
+  peerInfo.channel = 0;
+  peerInfo.encrypt = false;
+
+  if (esp_now_add_peer(&peerInfo) != ESP_OK) {
+    Serial.println("Failed to add peer!");
+  }
+
+  Serial.println("ESP32 Sender Ready.");
+}
+
+// ===================== LOOP =====================
+void loop() {
+  static int prevX = 0;
+  static int prevY = 0;
+
+  // -------- RIGHT SWITCH --------
+  int rawR = digitalRead(RIGHT_SW_PIN);
+  if (rawR != lastRawRight) {
+    lastDebounceRight = millis();
+    lastRawRight = rawR;
+  } 
+  else if ((millis() - lastDebounceRight) > DEBOUNCE_MS) {
+    if (rawR != stableRight) {
+      int prevStable = stableRight;
+      stableRight = rawR;
+      if (prevStable == LOW && stableRight == HIGH) {
+        // NEW logic: cycle through states 0->1->0->2->0->1->0->2...
+        rightState = (rightState + 1) % 4;
+        if (rightState == 1) right_flag = 1;
+        else if (rightState == 3) right_flag = 2;
+        else right_flag = 0;
+      }
+    }
+  }
+
+  // -------- LEFT SWITCH --------
+  int rawL = digitalRead(LEFT_SW_PIN);
+  if (rawL != lastRawLeft) {
+    lastDebounceLeft = millis();
+    lastRawLeft = rawL;
+  } 
+  else if ((millis() - lastDebounceLeft) > DEBOUNCE_MS) {
+    if (rawL != stableLeft) {
+      int prevStable = stableLeft;
+      stableLeft = rawL;
+      if (prevStable == LOW && stableLeft == HIGH) {
+        // NEW logic: cycle through states 0->1->0->2->0->1->0->2...
+        leftState = (leftState + 1) % 4;
+        if (leftState == 1) left_flag = 1;
+        else if (leftState == 3) left_flag = 2;
+        else left_flag = 0;
+      }
+    }
+  }
+
+  // -------- LIMIT SWITCH (no debounce) --------
+  // Reads HIGH -> limit_flag = 1 ; Reads LOW -> limit_flag = 0
+  int rawLimit = digitalRead(LIMIT_SWITCH_PIN); // NEW
+  limit_flag = (rawLimit == HIGH) ? 1 : 0;      // NEW
+
+  // -------- JOYSTICK --------
+  int rawY = analogRead(JOY_Y_PIN);
+  int rawX = analogRead(JOY_X_PIN);
+
+  int mappedY = map(rawY, 0, 4095, -512, 512);
+  int mappedX = map(rawX, 0, 4095, -512, 512);
+
+  data.x = (int16_t)smoothValue(mappedX, prevX);
+  data.y = (int16_t)smoothValue(mappedY, prevY);
+  prevX = data.x;
+  prevY = data.y;
+
+  data.right_flag = right_flag;
+  data.left_flag  = left_flag;
+  data.limit_flag = limit_flag; // NEW
+
+  // -------- SEND --------
+  esp_now_send(peerMac, (uint8_t *)&data, sizeof(data));
+
+  // -------- DEBUG --------
+  Serial.print("X: "); Serial.print(data.x);
+  Serial.print(" | Y: "); Serial.print(data.y);
+  Serial.print(" | R: "); Serial.print(data.right_flag);
+  Serial.print(" | L: "); Serial.print(data.left_flag);
+  Serial.print(" | LIMIT: "); Serial.println(data.limit_flag); // NEW
+
+  delay(20); // ~50Hz
+}
