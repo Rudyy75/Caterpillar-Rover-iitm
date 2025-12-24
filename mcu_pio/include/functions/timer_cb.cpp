@@ -1,19 +1,21 @@
-void timer_cb(){
+// Timer callback - sends sensor data to ROS periodically
+// Called by BlitzTimer at configured interval
 
-    // count_response.id = 44;
-    count_response.a ++;
-    count_response.b ++;
+void timer_cb() {
+  // ============ Send Encoder Data ============
+  encoderRaw = getEncoderTicks();
+  send_data(pack_data<EncoderRaw>(encoderRaw, ENCODER_RAW));
 
-    send_data(pack_data<Counter>(count_response, COUNTER));
+  // ============ Send BNO055 Data ============
+  // bnoReading is updated in main loop
+  send_data(pack_data<BnoReading>(bnoReading, BNO_READING));
 
-    // std::string data = "";
-
-    // uint8_t num = 3;
-    // float num2 = 4.567;
-    
-    // data = "data sending " + std::to_string(num) + " " + std::to_string(num2);
-    // debug_state(data);
-    
+  // ============ Send Limit Switch States ============
+  limitSwitches.ls1 = !digitalRead(LIMIT_SW_1_PIN); // Active low
+  limitSwitches.ls2 = !digitalRead(LIMIT_SW_2_PIN);
+  limitSwitches.ls3 = !digitalRead(LIMIT_SW_3_PIN);
+  send_data(pack_data<LimitSwitches>(limitSwitches, LIMIT_SWITCHES));
 }
 
-BlitzTimer t1(timer_cb, 100);
+// Timer instance - sends data at 50Hz (20ms interval)
+BlitzTimer t1(timer_cb, 20);

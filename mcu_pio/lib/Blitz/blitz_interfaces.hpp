@@ -17,8 +17,8 @@ enum PacketID : uint8_t {
 
 #pragma pack(push, 1)
 struct Velocity {
-  float vx; // Forward velocity (m/s)
-  float vy; // Lateral velocity (0 for diff drive)
+  float vx; // Lateral velocity (ignored for diff drive)
+  float vy; // Forward velocity (m/s)
   float vw; // Angular velocity (rad/s)
 };
 #pragma pack(pop)
@@ -50,7 +50,7 @@ struct ModeSwitch {
 
 #pragma pack(push, 1)
 struct BnoReading {
-  float current_angle; // Yaw (heading)
+  float yaw; // Heading angle
   float pitch;
   float roll;
 };
