@@ -11,6 +11,12 @@ find_package(rosidl_default_generators REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/Counter.msg"
+  "msg/Velocity.msg"
+  "msg/Odom.msg"
+  "msg/EncoderRaw.msg"
+  "msg/LimitSwitches.msg"
+  "msg/ModeSwitch.msg"
+  "msg/BnoReading.msg"
 )
 ament_export_dependencies(rosidl_default_runtime)
 

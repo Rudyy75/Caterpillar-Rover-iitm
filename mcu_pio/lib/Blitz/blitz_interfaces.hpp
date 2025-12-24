@@ -1,23 +1,76 @@
+// Blitz interfaces for Caterpillar rover
+// Must match interfaces.py msg_id and struct fields exactly
+
+#pragma once
+#include <stdint.h>
+
+// ============ Packet IDs ============
 enum PacketID : uint8_t {
-    COUNTER_RESPONSE = 1,
-    COUNTER = 2,
-    
+  VELOCITY = 1,       // ROS → MCU
+  ENCODER_RAW = 2,    // MCU → ROS
+  LIMIT_SWITCHES = 3, // MCU → ROS
+  MODE_SWITCH = 4,    // MCU → ROS
+  BNO_READING = 5     // MCU → ROS
 };
 
+// ============ ROS → MCU Structs ============
+
 #pragma pack(push, 1)
-struct Counter {
-    int16_t a;
-    int16_t b;
-    float c;
-    float d;
-};  
+struct Velocity {
+  float vx; // Forward velocity (m/s)
+  float vy; // Lateral velocity (0 for diff drive)
+  float vw; // Angular velocity (rad/s)
+};
 #pragma pack(pop)
 
-size_t get_packet_size(uint8_t id) {
-    switch (id) {
-        case COUNTER:    return sizeof(Counter);
-        case COUNTER_RESPONSE:    return sizeof(Counter);
+// ============ MCU → ROS Structs ============
 
-        default:      return 0; // unknown
-    }
+#pragma pack(push, 1)
+struct EncoderRaw {
+  int32_t fl_ticks; // Front-left wheel
+  int32_t fr_ticks; // Front-right wheel
+  int32_t bl_ticks; // Back-left wheel
+  int32_t br_ticks; // Back-right wheel
+};
+#pragma pack(pop)
+
+#pragma pack(push, 1)
+struct LimitSwitches {
+  bool ls1;
+  bool ls2;
+  bool ls3;
+};
+#pragma pack(pop)
+
+#pragma pack(push, 1)
+struct ModeSwitch {
+  bool autonomous;
+};
+#pragma pack(pop)
+
+#pragma pack(push, 1)
+struct BnoReading {
+  float current_angle; // Yaw (heading)
+  float pitch;
+  float roll;
+};
+#pragma pack(pop)
+
+// ============ Packet Size Lookup ============
+
+size_t get_packet_size(uint8_t id) {
+  switch (id) {
+  case VELOCITY:
+    return sizeof(Velocity);
+  case ENCODER_RAW:
+    return sizeof(EncoderRaw);
+  case LIMIT_SWITCHES:
+    return sizeof(LimitSwitches);
+  case MODE_SWITCH:
+    return sizeof(ModeSwitch);
+  case BNO_READING:
+    return sizeof(BnoReading);
+  default:
+    return 0;
+  }
 }

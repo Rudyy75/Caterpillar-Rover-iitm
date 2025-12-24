@@ -1,51 +1,62 @@
-from robot_interfaces.msg import Counter
+from robot_interfaces.msg import Velocity
+from robot_interfaces.msg import Odom
+from robot_interfaces.msg import EncoderRaw
+from robot_interfaces.msg import LimitSwitches
+from robot_interfaces.msg import ModeSwitch
+from robot_interfaces.msg import BnoReading
 from blitz import Blitz
 
 blitz_interfaces = {str : Blitz}
 
-# add an interface in this form
 blitz_interfaces = {
 
-    "counter": Blitz(
-
-        # the topic whose data you want to send to the mcu
-        # this is the topic you will PUBLISH to
-        topic="/counter",
-
-        # msg id should match the id in the microcontroller
+    # ============ ROS → MCU (from_mcu = False) ============
+    
+    "velocity": Blitz(
+        topic="/velocity",
         msg_id=1,
-
-        # format of the msg packet 
-        # uint8 : B, int8 b, uint16 H, int16 h, uint32 I, int32 i, float32 f
-        struct_fmt="hhff",
-
-        # fields just as in the ros interface 
-        fields=["a","b","c","d"],
-
-        # ros interface name, import it first
-        ros_msg=Counter,
-
-        # false id you are writing to the microcontroller
+        struct_fmt="fff",  # 3 floats: vx, vy, vw
+        fields=["vx", "vy", "vw"],
+        ros_msg=Velocity,
         from_mcu=False
     ),
 
-    "counter_response": Blitz(
-
-        # to receive from the microcontroller
-
-        # the data coming from the mcu will be published in this topic
-        # this is the topic you will SUBSCRIBE drom
-        topic="/counter_response",
-
-        # msg_id should match the id in the microcontroller
+    # ============ MCU → ROS (from_mcu = True) ============
+    
+    "encoder_raw": Blitz(
+        topic="/encoder_raw",
         msg_id=2,
-
-        # same as above
-        struct_fmt="hhff",
-        fields=["a","b","c","d"],
-        ros_msg=Counter,
-
-        # set this as true rest same
+        struct_fmt="iiii",  # 4 int32: fl, fr, bl, br ticks
+        fields=["fl_ticks", "fr_ticks", "bl_ticks", "br_ticks"],
+        ros_msg=EncoderRaw,
         from_mcu=True
     ),
+
+    "limit_switches": Blitz(
+        topic="/rover_limit_sw",
+        msg_id=3,
+        struct_fmt="???",  # 3 bools: ls1, ls2, ls3
+        fields=["ls1", "ls2", "ls3"],
+        ros_msg=LimitSwitches,
+        from_mcu=True
+    ),
+
+    "mode_switch": Blitz(
+        topic="/mode_switch",
+        msg_id=4,
+        struct_fmt="?",  # 1 bool: autonomous
+        fields=["autonomous"],
+        ros_msg=ModeSwitch,
+        from_mcu=True
+    ),
+
+    "bno_reading": Blitz(
+        topic="/bno",
+        msg_id=5,
+        struct_fmt="fff",  # 3 floats: current_angle, pitch, roll
+        fields=["current_angle", "pitch", "roll"],
+        ros_msg=BnoReading,
+        from_mcu=True
+    ),
+
 }
