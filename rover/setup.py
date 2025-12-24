@@ -24,6 +24,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
+            'odom_node = rover.odom_node:main',
         ],
     },
 )
