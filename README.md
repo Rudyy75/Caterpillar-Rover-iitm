@@ -1,6 +1,6 @@
 # Caterpillar Rover
 
-> **Hybrid Manual/Autonomous Bulldozer | Robocon 2026**
+> **Hybrid Manual/Autonomous Bulldozer**
 
 A sand-collecting bulldozer robot with seamless switching between manual joystick control and ROS2-based autonomous operation.
 
@@ -43,10 +43,10 @@ RPi (ROS2)  ───USB Serial/Blitz───► ESP32 (Sensor Hub)
 
 ```bash
 # Build
-cd ~/Robocon-2026/Caterpillar && colcon build
+cd {path_to_workspace} && colcon build
 
 # Launch
-source install/setup.bash
+source {path_to_workspace}/install/setup.bash
 ros2 launch rover manual.launch.py
 ```
 
