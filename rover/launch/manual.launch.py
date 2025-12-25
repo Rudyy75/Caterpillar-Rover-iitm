@@ -4,7 +4,8 @@ Launches the base stack needed for both manual and autonomous operation.
 
 Nodes:
     - blitz (packer + parser) - Serial communication with ESP32
-    - odom_node - Odometry from encoders + BNO
+    - odom_node - Odometry from encoders + BNO (Nav2 compatible)
+    - velocity_bridge - Converts cmd_vel (Twist) to /velocity (custom)
     - mode_manager - Listens for mode switch, launches autonomous stack
 """
 
@@ -35,7 +36,23 @@ def generate_launch_description():
         parameters=[
             {'wheel_diameter': 0.1},
             {'wheel_base': 0.3},
-            {'ticks_per_rev': 360}
+            {'ticks_per_rev': 360},
+            {'odom_frame': 'odom'},
+            {'base_frame': 'base_link'},
+            {'publish_tf': True}
+        ]
+    )
+    
+    velocity_bridge = Node(
+        package='rover',
+        executable='velocity_bridge',
+        name='velocity_bridge',
+        output='screen',
+        parameters=[
+            {'input_topic': '/cmd_vel'},
+            {'output_topic': '/velocity'},
+            {'max_linear_vel': 1.0},
+            {'max_angular_vel': 2.0}
         ]
     )
     
@@ -49,5 +66,7 @@ def generate_launch_description():
     return LaunchDescription([
         blitz_launch,
         odom_node,
+        velocity_bridge,
         mode_manager,
     ])
+

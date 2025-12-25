@@ -29,6 +29,7 @@ setup(
         'console_scripts': [
             'odom_node = rover.odom_node:main',
             'mode_manager = rover.mode_manager:main',
+            'velocity_bridge = rover.velocity_bridge:main',
         ],
     },
 )
