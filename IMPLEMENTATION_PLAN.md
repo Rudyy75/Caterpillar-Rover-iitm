@@ -121,14 +121,31 @@ sequenceDiagram
 
 ## ROS2 Topics
 
+### Nav2 Compatible
+| Topic | Message | Direction | Purpose |
+|-------|---------|-----------|---------|
+| `/odom` | `nav_msgs/Odometry` | Internal | Standard odometry with TF |
+| `/cmd_vel` | `geometry_msgs/Twist` | Nav2→ROS | Velocity commands from Nav2 |
+
+### Blitz/MCU Communication
 | Topic | Message | Direction | Purpose |
 |-------|---------|-----------|---------|
 | `/velocity` | `Velocity` | ROS→MCU | Drive commands (vy, vw) |
 | `/encoder_raw` | `EncoderRaw` | MCU→ROS | Wheel encoder ticks |
 | `/bno` | `BnoReading` | MCU→ROS | IMU orientation (yaw, pitch, roll) |
-| `/odom` | `Odom` | Internal | Computed robot pose |
 | `/mode_switch` | `ModeSwitch` | MCU→ROS | Manual/Auto toggle |
 | `/rover_limit_sw` | `LimitSwitches` | MCU→ROS | Action feedback |
+
+### TF Frames
+| Parent | Child | Published By |
+|--------|-------|--------------|
+| `odom` | `base_link` | `odom_node` |
+
+### Data Flow
+```
+Nav2 /cmd_vel (Twist) → velocity_bridge → /velocity (custom) → Blitz → MCU
+MCU → Blitz → /encoder_raw, /bno → odom_node → /odom (nav_msgs/Odometry)
+```
 
 ---
 
