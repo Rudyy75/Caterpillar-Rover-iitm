@@ -15,7 +15,7 @@ A sand-collecting bulldozer robot with seamless switching between manual joystic
 | **Bulldozer Mechanics** | Lead screw (scoop height) + rope motor (tub angle) |
 | **Hall-Effect Odometry** | 4 wheel encoders for position tracking |
 | **BNO055 IMU** | Accurate heading from 9-axis IMU |
-| **ROS2 Integration** | Built on Humble, ready for SLAM and Nav2 |
+| **ROS2 Integration** | Built on Jazzy, ready for SLAM and Nav2 |
 
 ---
 
