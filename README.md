@@ -81,5 +81,3 @@ src/
 See [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) for detailed architecture, wiring, and motor control mapping.
 
 ---
-
-**Team Robocon 2026**
