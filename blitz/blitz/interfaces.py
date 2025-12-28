@@ -4,6 +4,7 @@ from robot_interfaces.msg import EncoderRaw
 from robot_interfaces.msg import LimitSwitches
 from robot_interfaces.msg import ModeSwitch
 from robot_interfaces.msg import BnoReading
+from robot_interfaces.msg import ActuatorCmd
 from blitz import Blitz
 
 blitz_interfaces = {str : Blitz}
@@ -18,6 +19,15 @@ blitz_interfaces = {
         struct_fmt="fff",  # 3 floats: vx, vy, vw
         fields=["vx", "vy", "vw"],
         ros_msg=Velocity,
+        from_mcu=False
+    ),
+
+    "actuator_cmd": Blitz(
+        topic="/actuator_cmd",
+        msg_id=6,
+        struct_fmt="BB",  # 2 uint8: lead_screw, tub_angle
+        fields=["lead_screw", "tub_angle"],
+        ros_msg=ActuatorCmd,
         from_mcu=False
     ),
 
@@ -60,3 +70,4 @@ blitz_interfaces = {
     ),
 
 }
+
