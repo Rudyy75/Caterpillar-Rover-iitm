@@ -1,12 +1,11 @@
+#!/usr/bin/env python3
 """
-Manual Mode Launch File
-Launches the base stack needed for both manual and autonomous operation.
+Manual Mode Launch File (final)
 
-Nodes:
-    - blitz (packer + parser) - Serial communication with ESP32
-    - odom_node - Odometry from encoders + BNO (Nav2 compatible)
-    - velocity_bridge - Converts cmd_vel (Twist) to /velocity (custom)
-    - mode_manager - Listens for mode switch, launches autonomous stack
+Provides:
+ - Mapping (slam_toolbox)
+ - Manual control stack
+ - Map saving service for ModeManager
 """
 
 from launch import LaunchDescription
@@ -18,6 +17,7 @@ import os
 
 
 def generate_launch_description():
+
     blitz_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(
@@ -27,7 +27,7 @@ def generate_launch_description():
             )
         )
     )
-    
+
     odom_node = Node(
         package='rover',
         executable='odom_node',
@@ -42,31 +42,65 @@ def generate_launch_description():
             {'publish_tf': True}
         ]
     )
-    
+
     velocity_bridge = Node(
         package='rover',
         executable='velocity_bridge',
         name='velocity_bridge',
+        output='screen'
+    )
+
+    slam_toolbox_node = Node(
+        package='slam_toolbox',
+        executable='async_slam_toolbox_node',
+        name='slam_toolbox',
+        output='screen'
+    )
+
+    auto_map_saver = Node(
+        package='rover',
+        executable='auto_map_saver',
+        name='auto_map_saver',
         output='screen',
         parameters=[
-            {'input_topic': '/cmd_vel'},
-            {'output_topic': '/velocity'},
-            {'max_linear_vel': 1.0},
-            {'max_angular_vel': 2.0}
+            {'save_directory': os.path.join(os.path.expanduser('~'), 'maps')}
         ]
     )
-    
+
     mode_manager = Node(
         package='rover',
         executable='mode_manager',
         name='mode_manager',
         output='screen'
     )
-    
+
+    static_base_to_laser = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        arguments=[
+            '0.18', '0.0', '0.0',
+            '0.0', '0.0', '0.0', '1.0',
+            'base_link', 'laser'
+        ]
+    )
+
+    static_base_to_imu = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        arguments=[
+            '-0.20', '0.0', '0.0',
+            '0.0', '0.0', '0.0', '1.0',
+            'base_link', 'imu'
+        ]
+    )
+
     return LaunchDescription([
         blitz_launch,
         odom_node,
+        static_base_to_laser,
+        static_base_to_imu,
         velocity_bridge,
+        slam_toolbox_node,
+        auto_map_saver,   # <-- service provider
         mode_manager,
     ])
-
