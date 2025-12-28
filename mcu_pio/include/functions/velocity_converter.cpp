@@ -13,8 +13,8 @@ typedef struct {
   uint8_t limit_flag;
 } JoyData;
 
-// Convert ROS Velocity to JoyData for ESP8266
-JoyData velocityToJoyData(const Velocity &vel) {
+// Convert ROS Velocity + ActuatorCmd to JoyData for ESP8266
+JoyData velocityToJoyData(const Velocity &vel, const ActuatorCmd &act) {
   JoyData data;
 
   // For differential drive:
@@ -32,10 +32,13 @@ JoyData velocityToJoyData(const Velocity &vel) {
   data.x = (int16_t)constrain(-vel.vw * VW_TO_JOY_SCALE, -512.0f,
                               512.0f); // Note the negative sign
 
-  // Clear flags (ROS doesn't use these for motor control)
-  data.right_flag = 0;
-  data.left_flag = 0;
-  data.limit_flag = 0;
+  // Apply actuator commands from ROS
+  // right_flag: Lead screw (0=Stop, 1=Up, 2=Down)
+  // left_flag: Tub angle (0=Stop, 1=CW, 2=CCW)
+  data.right_flag = act.lead_screw;
+  data.left_flag = act.tub_angle;
+  data.limit_flag = 0; // Not used in autonomous mode
 
   return data;
 }
+

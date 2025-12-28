@@ -104,11 +104,12 @@ void loop() {
     }
   }
 
-  // 4. In autonomous mode, forward ROS velocity to ESP8266
-  if (isAutonomous && hasNewVelocity) {
-    JoyData joyData = velocityToJoyData(velocity);
+  // 4. In autonomous mode, forward ROS velocity + actuator to ESP8266
+  if (isAutonomous && (hasNewVelocity || hasNewActuatorCmd)) {
+    JoyData joyData = velocityToJoyData(velocity, actuatorCmd);
     esp_now_send(ESP8266_MAC, (uint8_t *)&joyData, sizeof(joyData));
     hasNewVelocity = false;
+    hasNewActuatorCmd = false;
   }
 
   // 5. Spin timer callbacks (sends sensor data to ROS)

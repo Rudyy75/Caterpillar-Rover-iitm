@@ -13,10 +13,14 @@ void store_data(std::vector<uint8_t> payload) {
     hasNewVelocity = true;
     break;
 
-    // Add more cases here if ROS sends other message types
+  case ACTUATOR_CMD:
+    actuatorCmd = parse_struct<ActuatorCmd>(payload);
+    hasNewActuatorCmd = true;
+    break;
 
   default:
     // Unknown packet ID - ignore
     break;
   }
 }
+

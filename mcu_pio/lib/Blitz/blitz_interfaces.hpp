@@ -10,7 +10,8 @@ enum PacketID : uint8_t {
   ENCODER_RAW = 2,    // MCU → ROS
   LIMIT_SWITCHES = 3, // MCU → ROS
   MODE_SWITCH = 4,    // MCU → ROS
-  BNO_READING = 5     // MCU → ROS
+  BNO_READING = 5,    // MCU → ROS
+  ACTUATOR_CMD = 6    // ROS → MCU
 };
 
 // ============ ROS → MCU Structs ============
@@ -20,6 +21,13 @@ struct Velocity {
   float vx; // Lateral velocity (ignored for diff drive)
   float vy; // Forward velocity (m/s)
   float vw; // Angular velocity (rad/s)
+};
+#pragma pack(pop)
+
+#pragma pack(push, 1)
+struct ActuatorCmd {
+  uint8_t lead_screw; // 0=Stop, 1=Up, 2=Down
+  uint8_t tub_angle;  // 0=Stop, 1=CW, 2=CCW
 };
 #pragma pack(pop)
 
@@ -62,6 +70,8 @@ size_t get_packet_size(uint8_t id) {
   switch (id) {
   case VELOCITY:
     return sizeof(Velocity);
+  case ACTUATOR_CMD:
+    return sizeof(ActuatorCmd);
   case ENCODER_RAW:
     return sizeof(EncoderRaw);
   case LIMIT_SWITCHES:
@@ -74,3 +84,4 @@ size_t get_packet_size(uint8_t id) {
     return 0;
   }
 }
+
