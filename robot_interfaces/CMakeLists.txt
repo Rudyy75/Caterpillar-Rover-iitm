@@ -17,6 +17,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/LimitSwitches.msg"
   "msg/ModeSwitch.msg"
   "msg/BnoReading.msg"
+  "msg/ActuatorCmd.msg"
 )
 ament_export_dependencies(rosidl_default_runtime)
 
