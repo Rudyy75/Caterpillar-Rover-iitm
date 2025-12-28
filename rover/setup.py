@@ -31,6 +31,7 @@ setup(
             'mode_manager = rover.mode_manager:main',
             'velocity_bridge = rover.velocity_bridge:main',
             'auto_map_saver = rover.auto_map_saver:main',
+            'excavation_node = rover.excavation_node:main',            
         ],
     },
 )
