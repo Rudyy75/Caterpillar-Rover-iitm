@@ -47,14 +47,14 @@ class VelocityBridge(Node):
         """Convert geometry_msgs/Twist to robot_interfaces/Velocity."""
         vel = Velocity()
         
-        # Nav2 Twist convention:
-        # linear.x = forward velocity (m/s)
-        # angular.z = turn rate (rad/s)
+        # Nav2 Twist convention (standard ROS):
+        # linear.x > 0 = forward (robot moves away from scoop = +X in our frame)
+        # angular.z > 0 = counter-clockwise
         
-        # Our Velocity convention:
-        # vx = strafe (ignored for diff drive)
-        # vy = forward velocity
-        # vw = angular velocity
+        # Our custom coordinate frame:
+        # +X = south (away from scoop) = robot's navigational "forward"
+        # +Y = east (right)
+        # No negation needed - positive linear.x = forward = +X
         
         vel.vx = 0.0  # Differential drive can't strafe
         vel.vy = self.clamp(msg.linear.x, -self.max_linear, self.max_linear)

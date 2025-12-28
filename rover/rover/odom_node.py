@@ -141,7 +141,9 @@ class OdomNode(Node):
         # Forward distance and turn
         forward_dist = (left_dist + right_dist) / 2.0
         
-        # Update position
+        # Update position (Standard ROS/Nav2 convention)
+        # +X = forward (away from scoop)
+        # +Y = left
         self.x += forward_dist * math.cos(self.theta)
         self.y += forward_dist * math.sin(self.theta)
         
