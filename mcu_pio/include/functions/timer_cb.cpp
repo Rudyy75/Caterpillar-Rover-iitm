@@ -17,5 +17,5 @@ void timer_cb() {
   send_data(pack_data<LimitSwitches>(limitSwitches, LIMIT_SWITCHES));
 }
 
-// Timer instance - sends data at 50Hz (20ms interval)
-BlitzTimer t1(timer_cb, 20);
+// Timer instance - sends data at 20Hz (50ms interval)
+BlitzTimer t1(timer_cb, 50);
