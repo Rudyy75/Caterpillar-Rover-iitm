@@ -34,8 +34,8 @@ def generate_launch_description():
         name='odom_node',
         output='screen',
         parameters=[
-            {'wheel_diameter': 0.1},  # UPDATE: measure your wheel diameter
-            {'wheel_base': 0.3},      # UPDATE: measure distance between wheels
+            {'wheel_diameter': 0.11},  # UPDATE: measure your wheel diameter
+            {'wheel_base': 0.35},      # UPDATE: measure distance between wheels
             {'ticks_per_rev': 3800},  # Measured: 3800 pulses per wheel rev
             {'odom_frame': 'odom'},
             {'base_frame': 'base_link'},
