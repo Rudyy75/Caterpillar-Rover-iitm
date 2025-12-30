@@ -8,7 +8,7 @@ from rclpy.executors import SingleThreadedExecutor
 from std_msgs.msg import String
 
 class SerialReceiver(Node):
-    def __init__(self, port="/dev/ttyACM0", baud=115200):
+    def __init__(self, port="/dev/ttyUSB0", baud=115200):
         super().__init__("serial_receiver")
         self.schema = blitz_interfaces 
         
