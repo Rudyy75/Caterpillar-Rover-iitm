@@ -18,6 +18,7 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
 // ============ Mode Switch ============
 volatile bool modeChanged = false;
 bool isAutonomous = false;
+bool bnoConnected = false;  // Track if BNO055 is connected
 
 void IRAM_ATTR mode_switch_isr() { modeChanged = true; }
 
@@ -31,11 +32,12 @@ void setup() {
 
   // Initialize BNO055
   if (!bno.begin()) {
-    debug_state("BNO055 not found!");
-    // Continue anyway - odom will work without IMU
+    debug_state("BNO055 not found - skipping IMU");
+    bnoConnected = false;
   } else {
     bno.setExtCrystalUse(true);
     debug_state("BNO055 OK");
+    bnoConnected = true;
   }
 
   // Initialize encoders
@@ -47,8 +49,8 @@ void setup() {
   pinMode(LIMIT_SW_2_PIN, INPUT_PULLUP);
   pinMode(LIMIT_SW_3_PIN, INPUT_PULLUP);
 
-  // Initialize mode switch detection
-  pinMode(MODE_SWITCH_PIN, INPUT);
+  // Initialize mode switch detection with PULLDOWN to prevent noise
+  pinMode(MODE_SWITCH_PIN, INPUT_PULLDOWN);
   attachInterrupt(MODE_SWITCH_PIN, mode_switch_isr, CHANGE);
 
   // ============ ESP-NOW Setup ============
@@ -82,26 +84,43 @@ void loop() {
   std::vector<uint8_t> payload = receive_data();
   store_data(payload);
 
-  // 2. Read BNO055 orientation
-  bno.getEvent(&bnoEvent);
-  bnoReading.yaw = bnoEvent.orientation.x;
-  bnoReading.pitch = bnoEvent.orientation.y;
-  bnoReading.roll = bnoEvent.orientation.z;
+  // 2. Read BNO055 orientation (only if connected)
+  if (bnoConnected) {
+    bno.getEvent(&bnoEvent);
+    bnoReading.yaw = bnoEvent.orientation.x;
+    bnoReading.pitch = bnoEvent.orientation.y;
+    bnoReading.roll = bnoEvent.orientation.z;
+  }
 
-  // 3. Check mode switch
+
+  // 3. Check mode switch (TOGGLE with DEBOUNCE)
+  // Press button once = enter autonomous, press again = exit
+  // 2000ms debounce to prevent accidental toggling from noise
   if (modeChanged) {
-    isAutonomous = digitalRead(MODE_SWITCH_PIN);
-    modeChanged = false;
-
-    // Notify ROS about mode change
-    modeSwitch.autonomous = isAutonomous;
-    send_data(pack_data<ModeSwitch>(modeSwitch, MODE_SWITCH));
-
-    if (isAutonomous) {
-      debug_state("AUTONOMOUS MODE");
-    } else {
-      debug_state("MANUAL MODE");
+    static unsigned long lastToggleTime = 0;
+    static bool lastPinState = false;
+    unsigned long now = millis();
+    
+    bool currentPinState = digitalRead(MODE_SWITCH_PIN);
+    
+    // Only toggle on rising edge AND after debounce period (2 seconds)
+    if (currentPinState && !lastPinState && (now - lastToggleTime > 2000)) {
+      isAutonomous = !isAutonomous;  // Toggle mode
+      lastToggleTime = now;
+      
+      // Notify ROS about mode change
+      modeSwitch.autonomous = isAutonomous;
+      send_data(pack_data<ModeSwitch>(modeSwitch, MODE_SWITCH));
+      
+      if (isAutonomous) {
+        debug_state("AUTONOMOUS MODE");
+      } else {
+        debug_state("MANUAL MODE");
+      }
     }
+    
+    lastPinState = currentPinState;
+    modeChanged = false;
   }
 
   // 4. In autonomous mode, forward ROS velocity + actuator to ESP8266

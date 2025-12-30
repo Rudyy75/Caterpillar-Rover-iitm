@@ -1,0 +1,249 @@
+// ===============================
+// ESP32 Controller - Joystick + Mode Switch
+// ===============================
+// 
+// IMPORTANT: When limit switch is PRESSED:
+// - Sends limit_flag = 1 to ESP8266 (triggers autonomous on rover)
+// - STOPS sending joystick data (lets rover ESP32 take control)
+//
+// When limit switch is RELEASED:
+// - Sends limit_flag = 0 (returns to manual)
+// - Resumes normal joystick sending
+//
+// Upload this to the handheld CONTROLLER ESP32 via Arduino IDE
+// Board: ESP32 Dev Module
+// ===============================
+
+#include <WiFi.h>
+#include <esp_now.h>
+
+// ===================== ESP8266 MAC ADDRESS =====================
+// Replace with YOUR ESP8266's MAC address
+uint8_t peerMac[] = {0x84, 0xCC, 0xA8, 0x9E, 0x85, 0x8A};
+
+// ===================== DATA STRUCT =====================
+// Must match ESP8266 receiver exactly
+typedef struct {
+  int16_t x;
+  int16_t y;
+  uint8_t right_flag;
+  uint8_t left_flag;
+  uint8_t limit_flag;
+} JoyData;
+
+JoyData data;
+
+// ===================== PIN CONFIGURATION =====================
+const int JOY_Y_PIN = 34;        // Joystick Y axis (forward/back)
+const int JOY_X_PIN = 35;        // Joystick X axis (left/right)
+
+const int OUT25 = 25;            // Original outputs (kept for compatibility)
+const int OUT26 = 26;
+
+const int RIGHT_SW_PIN = 32;     // Right shoulder button
+const int LEFT_SW_PIN  = 33;     // Left shoulder button
+
+const int LIMIT_SWITCH_PIN = 27; // Mode switch - PRESS TO TOGGLE AUTONOMOUS
+
+// ===================== DEBOUNCE =====================
+const unsigned long DEBOUNCE_MS = 50;
+
+// Right button state
+int lastRawRight = HIGH;
+int stableRight  = HIGH;
+unsigned long lastDebounceRight = 0;
+
+// Left button state
+int lastRawLeft  = HIGH;
+int stableLeft   = HIGH;
+unsigned long lastDebounceLeft  = 0;
+
+// Limit switch state
+int lastRawLimit = LOW;
+int stableLimit  = LOW;
+unsigned long lastDebounceLimit = 0;
+
+// ===================== FLAGS =====================
+uint8_t right_flag = 0;  // Lead screw: 0=Stop, 1=Up, 2=Down
+uint8_t left_flag  = 0;  // Tub angle: 0=Stop, 1=CW, 2=CCW
+bool isAutonomousMode = false;  // Toggle state
+
+// State variables for button cycling: 0->1->0->2->0->1->...
+int rightState = 0;
+int leftState  = 0;
+
+// ===================== SMOOTHING =====================
+int smoothValue(int raw, int prev, float alpha = 0.2) {
+  return (int)(alpha * raw + (1 - alpha) * prev);
+}
+
+// ===================== ESP-NOW CALLBACK (ESP32 Core v3.x) =====================
+void OnDataSent(const wifi_tx_info_t *info, esp_now_send_status_t status) {
+  // Optional: handle send status
+}
+
+// ===================== SETUP =====================
+void setup() {
+  Serial.begin(115200);
+
+  pinMode(JOY_Y_PIN, INPUT);
+  pinMode(JOY_X_PIN, INPUT);
+
+  pinMode(OUT25, OUTPUT);
+  pinMode(OUT26, OUTPUT);
+  digitalWrite(OUT25, HIGH);
+  digitalWrite(OUT26, HIGH);
+
+  pinMode(RIGHT_SW_PIN, INPUT_PULLUP);
+  pinMode(LEFT_SW_PIN, INPUT_PULLUP);
+  pinMode(LIMIT_SWITCH_PIN, INPUT_PULLDOWN);
+
+  // Initialize stable states
+  lastRawRight = digitalRead(RIGHT_SW_PIN);
+  lastRawLeft  = digitalRead(LEFT_SW_PIN);
+  stableRight = lastRawRight;
+  stableLeft  = lastRawLeft;
+
+  // ESP-NOW setup
+  WiFi.mode(WIFI_STA);
+  WiFi.disconnect();
+
+  if (esp_now_init() != ESP_OK) {
+    Serial.println("ESP-NOW init failed!");
+    while (1);
+  }
+
+  esp_now_register_send_cb(OnDataSent);
+
+  esp_now_peer_info_t peerInfo = {};
+  memcpy(peerInfo.peer_addr, peerMac, 6);
+  peerInfo.channel = 0;
+  peerInfo.encrypt = false;
+
+  if (esp_now_add_peer(&peerInfo) != ESP_OK) {
+    Serial.println("Failed to add peer!");
+  }
+
+  Serial.println("Controller Ready - Press LIMIT SWITCH to toggle autonomous mode");
+}
+
+// ===================== LOOP =====================
+void loop() {
+  static int prevX = 0;
+  static int prevY = 0;
+
+  // -------- LIMIT SWITCH (MODE TOGGLE) --------
+  int rawLimit = digitalRead(LIMIT_SWITCH_PIN);
+  if (rawLimit != lastRawLimit) {
+    lastDebounceLimit = millis();
+    lastRawLimit = rawLimit;
+  }
+  else if ((millis() - lastDebounceLimit) > DEBOUNCE_MS) {
+    if (rawLimit != stableLimit) {
+      int prevStable = stableLimit;
+      stableLimit = rawLimit;
+      
+      // Toggle on rising edge (button press)
+      if (prevStable == LOW && stableLimit == HIGH) {
+        isAutonomousMode = !isAutonomousMode;
+        
+        // SEND MODE CHANGE PACKET to ESP8266
+        data.x = 0;
+        data.y = 0;
+        data.right_flag = 0;
+        data.left_flag = 0;
+        data.limit_flag = isAutonomousMode ? 1 : 0;
+        
+        // Send multiple times to ensure delivery
+        for (int i = 0; i < 5; i++) {
+          esp_now_send(peerMac, (uint8_t *)&data, sizeof(data));
+          delay(10);
+        }
+        
+        if (isAutonomousMode) {
+          Serial.println(">>> AUTONOMOUS MODE - Sending stop, then silent");
+        } else {
+          Serial.println(">>> MANUAL MODE - Resuming joystick control");
+        }
+      }
+    }
+  }
+
+  // -------- IF AUTONOMOUS MODE --------
+  // COMPLETELY STOP SENDING joystick data - let rover ESP32 take over
+  // But keep checking limit switch at normal rate for mode toggle
+  if (isAutonomousMode) {
+    // Don't send joystick data, just wait for mode switch toggle
+    delay(20);  // Same rate as manual mode for responsive toggle
+    return;
+  }
+
+  // -------- MANUAL MODE - NORMAL JOYSTICK --------
+
+  // Right shoulder button
+  int rawR = digitalRead(RIGHT_SW_PIN);
+  if (rawR != lastRawRight) {
+    lastDebounceRight = millis();
+    lastRawRight = rawR;
+  } 
+  else if ((millis() - lastDebounceRight) > DEBOUNCE_MS) {
+    if (rawR != stableRight) {
+      int prevStable = stableRight;
+      stableRight = rawR;
+      if (prevStable == LOW && stableRight == HIGH) {
+        // Cycle: 0->1->0->2->0->1->0->2...
+        rightState = (rightState + 1) % 4;
+        if (rightState == 1) right_flag = 1;
+        else if (rightState == 3) right_flag = 2;
+        else right_flag = 0;
+      }
+    }
+  }
+
+  // Left shoulder button
+  int rawL = digitalRead(LEFT_SW_PIN);
+  if (rawL != lastRawLeft) {
+    lastDebounceLeft = millis();
+    lastRawLeft = rawL;
+  } 
+  else if ((millis() - lastDebounceLeft) > DEBOUNCE_MS) {
+    if (rawL != stableLeft) {
+      int prevStable = stableLeft;
+      stableLeft = rawL;
+      if (prevStable == LOW && stableLeft == HIGH) {
+        // Cycle: 0->1->0->2->0->1->0->2...
+        leftState = (leftState + 1) % 4;
+        if (leftState == 1) left_flag = 1;
+        else if (leftState == 3) left_flag = 2;
+        else left_flag = 0;
+      }
+    }
+  }
+
+  // Joystick reading
+  int rawY = analogRead(JOY_Y_PIN);
+  int rawX = analogRead(JOY_X_PIN);
+
+  int mappedY = map(rawY, 0, 4095, -512, 512);
+  int mappedX = map(rawX, 0, 4095, -512, 512);
+
+  data.x = (int16_t)smoothValue(mappedX, prevX);
+  data.y = (int16_t)smoothValue(mappedY, prevY);
+  prevX = data.x;
+  prevY = data.y;
+
+  data.right_flag = right_flag;
+  data.left_flag  = left_flag;
+  data.limit_flag = 0;  // Manual mode
+
+  // Send to ESP8266
+  esp_now_send(peerMac, (uint8_t *)&data, sizeof(data));
+
+  // Debug output
+  Serial.print("MANUAL | X: "); Serial.print(data.x);
+  Serial.print(" | Y: "); Serial.print(data.y);
+  Serial.print(" | R: "); Serial.print(data.right_flag);
+  Serial.print(" | L: "); Serial.println(data.left_flag);
+
+  delay(20); // ~50Hz in manual mode
+}

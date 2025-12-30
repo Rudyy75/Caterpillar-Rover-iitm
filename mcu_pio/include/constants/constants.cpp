@@ -4,15 +4,16 @@
 #pragma once
 
 // ============ ROS → MCU Data ============
-Velocity velocity;                 // Incoming velocity commands from ROS
-bool hasNewVelocity = false;       // Flag to indicate new velocity received
+Velocity velocity = {0.0f, 0.0f, 0.0f};  // Initialize to zero
+bool hasNewVelocity = false;
 
-ActuatorCmd actuatorCmd;           // Lead screw and tub angle commands
-bool hasNewActuatorCmd = false;    // Flag to indicate new actuator command
+ActuatorCmd actuatorCmd = {0, 0};  // Initialize to zero
+bool hasNewActuatorCmd = false;
 
 // ============ MCU → ROS Data ============
-EncoderRaw encoderRaw;       // Encoder tick counts
-LimitSwitches limitSwitches; // Limit switch states
-ModeSwitch modeSwitch;       // Mode switch state
-BnoReading bnoReading;       // BNO055 IMU data
+EncoderRaw encoderRaw = {0, 0, 0, 0};
+LimitSwitches limitSwitches = {false, false, false};
+ModeSwitch modeSwitch = {false};
+BnoReading bnoReading = {0.0f, 0.0f, 0.0f};
+
 

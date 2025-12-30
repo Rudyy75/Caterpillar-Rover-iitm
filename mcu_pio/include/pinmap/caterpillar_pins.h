@@ -17,11 +17,11 @@ const uint8_t ESP8266_MAC[] = {0x84, 0xCC, 0xA8, 0x9E, 0x85, 0x8A};
 #define ENC_BR_PIN GPIO_NUM_33 // Back-right wheel encoder
 
 // ============ Encoder Configuration ============
-// Get these values from your motor/encoder datasheet
-#define PULSES_PER_REV 12    // Hall sensor pulses per motor shaft revolution
-#define GEAR_RATIO 30        // Motor gearbox ratio (1 if direct drive)
-#define WHEEL_DIAMETER_M 0.1 // Wheel diameter in meters
-#define WHEEL_BASE_M 0.3     // Distance between left and right wheels (meters)
+// Measured: 3800 pulses per wheel revolution
+#define PULSES_PER_REV 3800  // Total pulses per wheel revolution (measured)
+#define GEAR_RATIO 1         // Already included in PULSES_PER_REV
+#define WHEEL_DIAMETER_M 0.11 // Wheel diameter in meters (UPDATE THIS!)
+#define WHEEL_BASE_M 0.35     // Distance between left and right wheels (UPDATE THIS!)
 
 // Derived constants (don't modify)
 #define TICKS_PER_WHEEL_REV (PULSES_PER_REV * GEAR_RATIO)

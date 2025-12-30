@@ -15,29 +15,32 @@ typedef struct {
 
 // Convert ROS Velocity + ActuatorCmd to JoyData for ESP8266
 JoyData velocityToJoyData(const Velocity &vel, const ActuatorCmd &act) {
+  // Explicitly initialize ALL fields to zero
   JoyData data;
+  memset(&data, 0, sizeof(JoyData));
 
   // For differential drive:
   // - Y axis controls forward/backward (from vy)
   // - X axis controls turning (from vw)
   // - vx is ignored (differential drive can't strafe)
 
-  // JOYSTICK MAPPING ANALYSIS:
-  // Code 1: Left = y + x, Right = y - x
-  // If x > 0: Left > Right -> Robot turns RIGHT (CW)
-  // ROS Convention: vw > 0 -> Robot turns LEFT (CCW)
-  // Therefore: vw positive must map to x negative
+  // JOYSTICK MAPPING:
+  // ESP8266 Code: left = y + x, right = y - x
+  // Positive Y = forward (both motors same direction)
+  // Positive X = turn right (left > right)
+  //
+  // NOTE: X and Y are swapped due to ESP-NOW struct interpretation
+  // NOTE: Negated vy because positive should go forward
 
-  data.y = (int16_t)constrain(vel.vy * VY_TO_JOY_SCALE, -512.0f, 512.0f);
-  data.x = (int16_t)constrain(-vel.vw * VW_TO_JOY_SCALE, -512.0f,
-                              512.0f); // Note the negative sign
+  data.x = (int16_t)constrain(-vel.vy * VY_TO_JOY_SCALE, -512.0f, 512.0f);  // Forward/back
+  data.y = (int16_t)constrain(vel.vw * VW_TO_JOY_SCALE, -512.0f, 512.0f);   // Turning
 
   // Apply actuator commands from ROS
-  // right_flag: Lead screw (0=Stop, 1=Up, 2=Down)
-  // left_flag: Tub angle (0=Stop, 1=CW, 2=CCW)
   data.right_flag = act.lead_screw;
   data.left_flag = act.tub_angle;
-  data.limit_flag = 0; // Not used in autonomous mode
+  
+  // Keep limit_flag = 1 to maintain autonomous mode
+  data.limit_flag = 1;
 
   return data;
 }
