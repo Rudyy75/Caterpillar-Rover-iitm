@@ -93,33 +93,34 @@ void loop() {
   }
 
 
-  // 3. Check mode switch (TOGGLE with DEBOUNCE)
-  // Press button once = enter autonomous, press again = exit
-  // 2000ms debounce to prevent accidental toggling from noise
+  // 3. Check mode switch (READ STATE directly from ESP8266 D0)
+  // D0 HIGH = autonomous mode, D0 LOW = manual mode
+  // Debounce to prevent noise
   if (modeChanged) {
-    static unsigned long lastToggleTime = 0;
-    static bool lastPinState = false;
+    static unsigned long lastChangeTime = 0;
     unsigned long now = millis();
     
     bool currentPinState = digitalRead(MODE_SWITCH_PIN);
     
-    // Only toggle on rising edge AND after debounce period (2 seconds)
-    if (currentPinState && !lastPinState && (now - lastToggleTime > 2000)) {
-      isAutonomous = !isAutonomous;  // Toggle mode
-      lastToggleTime = now;
-      
-      // Notify ROS about mode change
-      modeSwitch.autonomous = isAutonomous;
-      send_data(pack_data<ModeSwitch>(modeSwitch, MODE_SWITCH));
-      
-      if (isAutonomous) {
-        debug_state("AUTONOMOUS MODE");
-      } else {
-        debug_state("MANUAL MODE");
+    // Only accept change after debounce period (200ms)
+    if (now - lastChangeTime > 200) {
+      // Follow the actual pin state, don't toggle
+      if (currentPinState != isAutonomous) {
+        isAutonomous = currentPinState;
+        lastChangeTime = now;
+        
+        // Notify ROS about mode change
+        modeSwitch.autonomous = isAutonomous;
+        send_data(pack_data<ModeSwitch>(modeSwitch, MODE_SWITCH));
+        
+        if (isAutonomous) {
+          debug_state("AUTONOMOUS MODE");
+        } else {
+          debug_state("MANUAL MODE");
+        }
       }
     }
     
-    lastPinState = currentPinState;
     modeChanged = false;
   }
 

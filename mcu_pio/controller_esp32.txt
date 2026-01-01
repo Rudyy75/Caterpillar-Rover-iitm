@@ -72,8 +72,15 @@ bool isAutonomousMode = false;  // Toggle state
 int rightState = 0;
 int leftState  = 0;
 
-// ===================== SMOOTHING =====================
-int smoothValue(int raw, int prev, float alpha = 0.2) {
+// ===================== DEADZONE & SMOOTHING =====================
+const int DEADZONE = 60;  // Ignore joystick values within +/- 60 of center
+
+int applyDeadzone(int value) {
+  if (abs(value) < DEADZONE) return 0;
+  return value;
+}
+
+int smoothValue(int raw, int prev, float alpha = 0.3) {
   return (int)(alpha * raw + (1 - alpha) * prev);
 }
 
@@ -220,15 +227,19 @@ void loop() {
     }
   }
 
-  // Joystick reading
+  // Joystick reading with deadzone
   int rawY = analogRead(JOY_Y_PIN);
   int rawX = analogRead(JOY_X_PIN);
 
   int mappedY = map(rawY, 0, 4095, -512, 512);
   int mappedX = map(rawX, 0, 4095, -512, 512);
 
-  data.x = (int16_t)smoothValue(mappedX, prevX);
-  data.y = (int16_t)smoothValue(mappedY, prevY);
+  // Apply deadzone first, then smooth
+  int cleanY = applyDeadzone(mappedY);
+  int cleanX = applyDeadzone(mappedX);
+
+  data.x = (int16_t)smoothValue(-cleanX, prevX);  // Negated to fix left/right inversion
+  data.y = (int16_t)smoothValue(cleanY, prevY);
   prevX = data.x;
   prevY = data.y;
 
