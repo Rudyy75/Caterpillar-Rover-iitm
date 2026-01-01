@@ -50,6 +50,7 @@ def generate_launch_description():
         output='screen'
     )
 
+
     slam_toolbox_node = Node(
         package='slam_toolbox',
         executable='async_slam_toolbox_node',

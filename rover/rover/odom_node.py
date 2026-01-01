@@ -39,10 +39,10 @@ class OdomNode(Node):
     def __init__(self):
         super().__init__('odom_node')
 
-        # Parameters
-        self.declare_parameter('wheel_diameter', 0.1)
-        self.declare_parameter('wheel_base', 0.3)
-        self.declare_parameter('ticks_per_rev', 360)
+        # Parameters (defaults match actual robot config)
+        self.declare_parameter('wheel_diameter', 0.11)
+        self.declare_parameter('wheel_base', 0.35)
+        self.declare_parameter('ticks_per_rev', 3800)
         self.declare_parameter('odom_frame', 'odom')
         self.declare_parameter('base_frame', 'base_link')
         self.declare_parameter('publish_tf', True)
@@ -108,8 +108,9 @@ class OdomNode(Node):
         self.prev_br = msg.br_ticks
         self.last_time = current_time
 
-        left_dist = ((d_fl + d_bl) / 2.0) * self.meters_per_tick
-        right_dist = ((d_fr + d_br) / 2.0) * self.meters_per_tick
+        # Using only back encoders (BL/BR) since front encoders not connected
+        left_dist = d_bl * self.meters_per_tick
+        right_dist = d_br * self.meters_per_tick
         forward_dist = (left_dist + right_dist) / 2.0
 
         self.x += forward_dist * math.cos(self.theta)
