@@ -32,6 +32,7 @@ setup(
             'velocity_bridge = rover.velocity_bridge:main',
             'auto_map_saver = rover.auto_map_saver:main',
             'excavation_node = rover.excavation_node:main',
+            'simple_excavation = rover.simple_excavation:main',
             'aruco = rover.aruco:main',            
         ],
     },
