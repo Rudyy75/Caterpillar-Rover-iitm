@@ -1,0 +1,5 @@
+ultralytics
+opencv-python
+onnx
+onnxruntime
+numpy<2.0
