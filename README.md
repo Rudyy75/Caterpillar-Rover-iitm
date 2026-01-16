@@ -16,7 +16,7 @@ A sand-collecting bulldozer robot with seamless switching between manual joystic
 | **Hall-Effect Odometry** | 4 wheel encoders for position tracking |
 | **BNO055 IMU** | Accurate heading from 9-axis IMU |
 | **ROS2 Integration** | Built on Jazzy, ready for SLAM and Nav2 |
-
+|**Crater Detection (ML)** | YOLOv5s-based crater detection using Hailo HAT |
 ---
 
 ## Architecture
@@ -31,7 +31,9 @@ RPi (ROS2)  ───USB Serial/Blitz───► ESP32 (Sensor Hub)
     ├── Blitz (packer/parser)
     ├── Odom Node
     ├── Mode Manager
+    ├── Crater Detection (ML - Standalone)
     └── [Autonomous Stack]
+
 ```
 
 **Manual Mode**: Controller → ESP8266 (direct)  
@@ -68,10 +70,11 @@ ros2 launch rover manual.launch.py
 
 ```
 src/
-├── blitz/              # Serial communication bridge
-├── robot_interfaces/   # Custom ROS2 messages
-├── rover/              # Nodes and launch files
-└── mcu_pio/            # ESP32 firmware (PlatformIO)
+├── blitz/                  # Serial communication bridge
+├── Crater_Detection/       # YOLOv5s crater detection (Hailo inference)
+├── robot_interfaces/       # Custom ROS2 messages
+├── rover/                  # Nodes and launch files
+└── mcu_pio/                # ESP32 firmware (PlatformIO)
 ```
 
 ---
