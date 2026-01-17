@@ -92,17 +92,3 @@ flowchart TB
 | Encoders | GPIO32-35 |
 | BNO055 (I2C) | GPIO21/22 |
 | Camera Servo | GPIO17 |
-
----
-
-## Quick Start
-
-```bash
-# Build
-cd ~/Robocon-2026/Caterpillar
-colcon build
-source install/setup.bash
-
-# Run
-ros2 launch rover manual.launch.py
-```
